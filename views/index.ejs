@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarot Tapestry</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/images/logo.png">
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="#" onclick="showPage('reading')">Reading</a></li>
+            <li><a href="#" onclick="showPage('education')">Education</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div id="readingPage">
+            <div id="fixedElements">
+                <h1>Mystical Tarot Reading</h1>
+                <div class="button-container">
+                    <button id="drawButton">Reveal Your Destiny</button>
+                    <button id="saveButton" onclick="saveReading()" style="display: none;">Save Reading</button>
+                </div>
+            </div>
+            <div id="cardContainer"></div>
+            <div id="meaningContainer"></div>
+        </div>
+        <div id="educationPage" style="display: none;">
+            <h1>Tarot Card Encyclopedia</h1>
+            <div id="educationContainer"></div>
+        </div>
+    </div>
+
+    <div id="cardModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-image">
+                <img id="modalImage" src="" alt="">
+            </div>
+            <div class="modal-text">
+                <span class="close">&times;</span>
+                <h2 id="modalTitle"></h2>
+                <p id="modalMeaning"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tarotCards = <%- tarotCards %>;
+        let drawnCards = [];
+        let lastDrawTime = 0;
+        const cooldownPeriod = 5000; // 5 seconds cooldown
+
+        function showPage(page) {
+            document.getElementById('readingPage').style.display = page === 'reading' ? 'block' : 'none';
+            document.getElementById('educationPage').style.display = page === 'education' ? 'block' : 'none';
+            if (page === 'education') {
+                displayEducationCards();
+            }
+        }
+
+        function displayEducationCards() {
+            const educationContainer = document.getElementById('educationContainer');
+            educationContainer.innerHTML = '';
+            tarotCards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'education-card';
+                cardElement.innerHTML = `
+                    <img src="${card.image}" alt="${card.name}">
+                    <div class="education-card-text">
+                        <h3>${card.name}</h3>
+                        <p>${card.meaning}</p>
+                    </div>
+                `;
+                educationContainer.appendChild(cardElement);
+            });
+        }
+
+        function createCard() {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'card';
+            cardElement.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-face card-front">
+                        <img src="" alt="">
+                    </div>
+                    <div class="card-face card-back"></div>
+                </div>
+                <div class="card-name"></div>
+            `;
+            return cardElement;
+        }
+
+        function initializeCards() {
+            const cardContainer = document.getElementById('cardContainer');
+            cardContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                cardContainer.appendChild(createCard());
+            }
+        }
+
+        function resetCards() {
+            const cardElements = document.querySelectorAll('.card');
+            cardElements.forEach(cardElement => {
+                const cardInner = cardElement.querySelector('.card-inner');
+                const cardFrontImg = cardElement.querySelector('.card-front img');
+                const cardName = cardElement.querySelector('.card-name');
+
+                cardInner.style.transition = 'none';
+                cardInner.style.transform = 'rotateY(0deg)';
+                cardInner.classList.remove('flipped');
+                cardInner.classList.remove('reversed');
+                cardFrontImg.src = '';
+                cardFrontImg.alt = '';
+                cardFrontImg.style.transform = 'none';
+                cardName.textContent = '';
+                cardName.classList.remove('visible');
+
+                cardInner.offsetHeight; // Force reflow
+                cardInner.style.transition = 'transform 1s';
+            });
+        }
+
+        function revealCards() {
+            const currentTime = new Date().getTime();
+            if (currentTime - lastDrawTime < cooldownPeriod) {
+                const remainingTime = Math.ceil((cooldownPeriod - (currentTime - lastDrawTime)) / 1000);
+                alert(`Please wait ${remainingTime} seconds before drawing again.`);
+                return;
+            }
+
+            const cardContainer = document.getElementById('cardContainer');
+            const meaningContainer = document.getElementById('meaningContainer');
+            const drawButton = document.getElementById('drawButton');
+            
+            meaningContainer.innerHTML = '';
+            meaningContainer.classList.remove('fade-in');
+            drawnCards = [];
+
+            resetCards();
+
+            // Create a copy of tarotCards to draw from
+            let availableCards = [...tarotCards];
+
+            setTimeout(() => {
+                const cardElements = cardContainer.querySelectorAll('.card');
+                cardElements.forEach((cardElement, index) => {
+                    if (availableCards.length === 0) {
+                        console.error('No more unique cards available');
+                        return;
+                    }
+
+                    const randomIndex = Math.floor(Math.random() * availableCards.length);
+                    const randomCard = availableCards[randomIndex];
+                    
+                    // Remove the drawn card from the available cards
+                    availableCards.splice(randomIndex, 1);
+                    
+                    const isReversed = Math.random() < 0.5;
+                    drawnCards.push({...randomCard, isReversed});
+
+                    const cardInner = cardElement.querySelector('.card-inner');
+                    const cardFrontImg = cardElement.querySelector('.card-front img');
+                    const cardName = cardElement.querySelector('.card-name');
+
+                    cardFrontImg.src = randomCard.image;
+                    cardFrontImg.alt = randomCard.name;
+                    cardName.textContent = randomCard.name + (isReversed ? ' (Reversed)' : '');
+
+                    if (isReversed) {
+                        cardInner.classList.add('reversed');
+                        cardFrontImg.style.transform = 'rotate(180deg)';
+                    } else {
+                        cardFrontImg.style.transform = 'none';
+                    }
+
+                    // Start flip animation
+                    setTimeout(() => {
+                        cardInner.style.transform = 'rotateY(180deg)';
+                    }, index * 300);
+
+                    cardElement.onclick = () => showCardDetails(randomCard, isReversed);
+                });
+
+                setTimeout(() => {
+                    cardElements.forEach((cardElement) => {
+                        const cardInner = cardElement.querySelector('.card-inner');
+                        const cardName = cardElement.querySelector('.card-name');
+                        cardInner.classList.add('flipped');
+                        cardName.classList.add('visible');
+                    });
+                }, 1000);
+
+                setTimeout(() => {
+                    let meaningHtml = '<h2>Your Tarot Reading</h2>';
+                    drawnCards.forEach((card, index) => {
+                        meaningHtml += `<h3>${index + 1}. ${card.name}${card.isReversed ? ' (Reversed)' : ''}</h3><p>${card.meaning}</p>`;
+                    });
+                    meaningHtml += '<button id="saveButton" onclick="saveReading()">Save Reading</button>';
+                    meaningContainer.innerHTML = meaningHtml;
+                    meaningContainer.classList.add('fade-in');
+                }, 2000);
+
+                drawButton.textContent = 'Draw Again';
+                lastDrawTime = currentTime;
+            }, 100);
+        }
+
+        function showCardDetails(card, isReversed) {
+            const modal = document.getElementById('cardModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMeaning = document.getElementById('modalMeaning');
+
+            modalImage.src = card.image;
+            modalImage.style.transform = isReversed ? 'rotate(180deg)' : 'none';
+            modalTitle.textContent = card.name + (isReversed ? ' (Reversed)' : '');
+            modalMeaning.textContent = card.meaning;
+            
+            if (isReversed) {
+                modalMeaning.innerHTML += '<p><strong>Reversed Meaning:</strong> When reversed, this card may indicate the opposite or a blocked expression of these qualities.</p>';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        function saveReading() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 800;
+            canvas.height = 600;
+
+            // Set background
+            ctx.fillStyle = '#0c0c0c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw cards and names
+            drawnCards.forEach((card, index) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.save();
+                    if (card.isReversed) {
+                        ctx.translate(50 + index * 250 + 100, 50 + 150);
+                        ctx.rotate(Math.PI);
+                        ctx.drawImage(img, -100, -150, 200, 300);
+                    } else {
+                        ctx.drawImage(img, 50 + index * 250, 50, 200, 300);
+                    }
+                    ctx.restore();
+                    
+                    ctx.fillStyle = '#d4af37';
+                    ctx.font = '20px Cinzel';
+                    ctx.fillText(card.name + (card.isReversed ? ' (R)' : ''), 50 + index * 250, 380);
+
+                    // If all cards are drawn, save the canvas as an image
+                    if (index === drawnCards.length - 1) {
+                        const link = document.createElement('a');
+                        link.download = 'tarot-reading.png';
+                        link.href = canvas.toDataURL();
+                        link.click();
+                    }
+                };
+                img.src = card.image;
+            });
+        }
+
+        function initializePage() {
+            initializeCards();
+            showPage('reading');
+            document.getElementById('drawButton').addEventListener('click', revealCards);
+        }
+
+        // Close modal when clicking on <span> (x)
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('cardModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('cardModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>
